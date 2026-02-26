@@ -1,0 +1,15 @@
+<annotation>
+	<folder>VOC2012</folder>
+	<filename>2007_000733.jpg</filename>
+	<source>
+		<database>The VOC2007 Database</database>
+		<annotation>PASCAL VOC2007</annotation>
+		<image>flickr</image>
+	</source>
+	<size>
+		<width>450</width>
+		<height>435</height>
+		<depth>3</depth>
+	</size>
+	<segmented>1</segmented>
+</annotation>
