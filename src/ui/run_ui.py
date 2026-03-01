@@ -2,8 +2,9 @@ import os
 
 import src.utils.converter as converter
 import src.utils.general_utils as general_utils
-from PyQt5 import QtCore, QtWidgets
-from PyQt5.QtWidgets import QFileDialog, QMainWindow, QMessageBox
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QFileDialog, QMainWindow, QMessageBox, QShortcut
+from PyQt5.QtGui import QKeySequence
 from src.evaluators.coco_evaluator import get_coco_summary
 from src.evaluators.pascal_voc_evaluator import (get_pascalvoc_metrics, plot_precision_recall_curve,
                                                  plot_precision_recall_curves)
@@ -34,7 +35,128 @@ class Main_Dialog(QMainWindow, Main_UI):
         self.filepath_classes_det = None
         self.dir_save_results = None
 
+        # --- Set the dialog background color to blue ---
+        # A light blue tone is used so black labels / text stay readable.
+        # We style both the QMainWindow and its central widget so the blue
+        # background is visible regardless of platform / Qt style.
+        blue_stylesheet = "background-color: #cfe8ff;"
+        self.setStyleSheet("QMainWindow { %s }" % blue_stylesheet)
+        if self.centralWidget() is not None:
+            self.centralWidget().setStyleSheet(blue_stylesheet)
+        else:
+            # Fallback: paint via palette if no central widget was set.
+            palette = self.palette()
+            palette.setColor(QtGui.QPalette.Window, QtGui.QColor("#cfe8ff"))
+            self.setPalette(palette)
+            self.setAutoFillBackground(True)
+
+        # --- "Clear All" button near the top of the dialog ---
+        # Placed at the top-right so it is easy to reach without covering
+        # the existing "Ground truth" header label.
+        if not hasattr(self, 'btn_clear_all') or self.btn_clear_all is None:
+            parent_widget = self.centralWidget() if self.centralWidget() is not None else self
+            self.btn_clear_all = QtWidgets.QPushButton(parent_widget)
+            self.btn_clear_all.setGeometry(QtCore.QRect(1080, 5, 120, 27))
+            self.btn_clear_all.setObjectName("btn_clear_all")
+            self.btn_clear_all.setText("Clear All")
+            self.btn_clear_all.setToolTip(
+                "Reset every text box, radio button, check box and spin "
+                "box back to its original default state.")
+            # Connect only when WE create the button. If main_ui.py
+            # already created it, it also wires the signal, so we avoid
+            # a double connection here.
+            self.btn_clear_all.clicked.connect(self.btn_clear_all_clicked)
+        # Make sure the button sits on top of the header label.
+        self.btn_clear_all.raise_()
+
+        # --- Keyboard shortcut (Ctrl+Enter) for the Run button ---
+        # We bind both 'Return' (main keyboard Enter) and 'Enter'
+        # (numeric-keypad Enter) so the shortcut works from either key.
+        # The QShortcut instances use window-wide context so they fire
+        # even when a child widget (e.g. a QLineEdit) has focus.
+        run_tooltip_suffix = " (shortcut: Ctrl+Enter)"
+        existing_tooltip = self.btn_run.toolTip() or ""
+        if run_tooltip_suffix.strip() not in existing_tooltip:
+            self.btn_run.setToolTip(existing_tooltip + run_tooltip_suffix)
+        # Native button shortcut (lets Qt expose it in the platform's way).
+        self.btn_run.setShortcut(QKeySequence("Ctrl+Return"))
+        # Extra window-level shortcuts for robustness across focus states
+        # and for the numeric-keypad Enter key.
+        self._run_shortcut_return = QShortcut(QKeySequence("Ctrl+Return"), self)
+        self._run_shortcut_return.setContext(QtCore.Qt.WindowShortcut)
+        self._run_shortcut_return.activated.connect(self.btn_run.click)
+        self._run_shortcut_enter = QShortcut(QKeySequence("Ctrl+Enter"), self)
+        self._run_shortcut_enter.setContext(QtCore.Qt.WindowShortcut)
+        self._run_shortcut_enter.activated.connect(self.btn_run.click)
+
         self.center_screen()
+
+    def btn_clear_all_clicked(self):
+        """Reset every user-editable control on the dialog to its default
+        value. This covers all QLineEdit text boxes, all QCheckBox metric
+        selectors, both QRadioButton groups (ground-truth format and
+        detection format) and the IOU threshold QDoubleSpinBox. The
+        internally tracked directory / file path attributes are reset as
+        well so the dialog is in the same state as right after launch."""
+        # --- Clear all text boxes (QLineEdit) ---
+        for line_edit in (self.txb_gt_dir,
+                          self.txb_gt_images_dir,
+                          self.txb_classes_gt,
+                          self.txb_det_dir,
+                          self.txb_classes_det,
+                          self.txb_output_dir):
+            line_edit.clear()
+
+        # --- Reset radio buttons (ground-truth coordinates format) ---
+        # Default: COCO (.json)
+        self.rad_gt_format_coco_json.setChecked(True)
+        for rb in (self.rad_gt_format_pascalvoc_xml,
+                   self.rad_gt_format_labelme_xml,
+                   self.rad_gt_format_openimages_csv,
+                   self.rad_gt_format_imagenet_xml,
+                   self.rad_gt_format_yolo_text,
+                   self.rad_gt_format_abs_values_text,
+                   self.rad_gt_format_cvat_xml):
+            rb.setChecked(False)
+
+        # --- Reset radio buttons (detection coordinates format) ---
+        # Default: <class_id> <confidence> <x_center> <y_center> <width> <height> (RELATIVE)
+        self.rad_det_ci_format_text_yolo_rel.setChecked(True)
+        for rb in (self.rad_det_ci_format_text_xyx2y2_abs,
+                   self.rad_det_ci_format_text_xywh_abs,
+                   self.rad_det_format_coco_json,
+                   self.rad_det_cn_format_text_yolo_rel,
+                   self.rad_det_cn_format_text_xyx2y2_abs,
+                   self.rad_det_cn_format_text_xywh_abs):
+            rb.setChecked(False)
+
+        # --- Reset all metric check boxes to their default (all checked) ---
+        for cb in (self.chb_metric_AP_coco,
+                   self.chb_metric_AP50_coco,
+                   self.chb_metric_AP75_coco,
+                   self.chb_metric_APsmall_coco,
+                   self.chb_metric_APmedium_coco,
+                   self.chb_metric_APlarge_coco,
+                   self.chb_metric_AR_max1,
+                   self.chb_metric_AR_max10,
+                   self.chb_metric_AR_max100,
+                   self.chb_metric_AR_small,
+                   self.chb_metric_AR_medium,
+                   self.chb_metric_AR_large,
+                   self.chb_metric_AP_pascal,
+                   self.chb_metric_mAP_pascal):
+            cb.setChecked(True)
+
+        # --- Reset the IOU threshold spin box ---
+        self.dsb_IOU_pascal.setValue(0.5)
+
+        # --- Reset the internally tracked paths so logic matches the UI ---
+        self.dir_annotations_gt = None
+        self.dir_images_gt = None
+        self.filepath_classes_gt = None
+        self.dir_dets = None
+        self.filepath_classes_det = None
+        self.dir_save_results = None
 
     def center_screen(self):
         size = self.size()

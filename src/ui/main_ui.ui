@@ -279,6 +279,22 @@
     <set>Qt::AlignCenter</set>
    </property>
   </widget>
+  <widget class="QPushButton" name="btn_clear_all">
+   <property name="geometry">
+    <rect>
+     <x>1080</x>
+     <y>5</y>
+     <width>120</width>
+     <height>27</height>
+    </rect>
+   </property>
+   <property name="toolTip">
+    <string>Reset every text box, radio button, check box and spin box back to its original default state.</string>
+   </property>
+   <property name="text">
+    <string>Clear All</string>
+   </property>
+  </widget>
   <widget class="QLabel" name="lbl_groundtruth_dir_2">
    <property name="geometry">
     <rect>
@@ -1370,6 +1386,9 @@
    <property name="text">
     <string>RUN</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Return</string>
+   </property>
   </widget>
   <widget class="QLabel" name="lbl_groundtruth_dir_24">
    <property name="geometry">
@@ -1685,6 +1704,22 @@
     </hint>
    </hints>
   </connection>
+  <connection>
+   <sender>btn_clear_all</sender>
+   <signal>clicked()</signal>
+   <receiver>Dialog</receiver>
+   <slot>btn_clear_all_clicked()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>1140</x>
+     <y>18</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>607</x>
+     <y>425</y>
+    </hint>
+   </hints>
+  </connection>
  </connections>
  <slots>
   <slot>btn_gt_dir_clicked()</slot>
@@ -1699,5 +1734,6 @@
   <slot>btn_det_classes_clicked()</slot>
   <slot>btn_run_clicked()</slot>
   <slot>btn_output_dir_clicked()</slot>
+  <slot>btn_clear_all_clicked()</slot>
  </slots>
 </ui>
